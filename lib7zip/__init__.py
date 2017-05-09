@@ -54,9 +54,13 @@ dll_paths = [env_path] if env_path else []
 if 'win' in sys.platform:
 	log.info('autodetecting dll path from registry')
 	from winreg import OpenKey, QueryValueEx, HKEY_LOCAL_MACHINE, KEY_READ
+        
+        try:
+    	    aKey = OpenKey(HKEY_LOCAL_MACHINE, r"SOFTWARE\7-Zip", 0 , KEY_READ)
+	    s7z_path = QueryValueEx(aKey, "Path")[0]
+        except FileNotFoundError:
+            s7z_path = "C:\\Program Files\\7-Zip\\"
 
-	aKey = OpenKey(HKEY_LOCAL_MACHINE, r"SOFTWARE\7-Zip", 0 , KEY_READ)
-	s7z_path = QueryValueEx(aKey, "Path")[0]
 	dll_paths.append(os.path.join(s7z_path, '7z.dll'))
 
 	ole32 = ffi.dlopen('ole32')
