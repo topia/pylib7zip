@@ -94,7 +94,7 @@ for dll_path in dll_paths:
         break
 
 if dll7z is None:
-    raise Exception('Could not find 7z.dll/7z.so')
+    raise Exception('Could not find 7z.dll/7z.so in: {}'.format(dll_paths))
 
 C = ffi.dlopen(None)
 
