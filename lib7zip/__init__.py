@@ -97,7 +97,7 @@ if dll7z is None:
     raise Exception('Could not find 7z.dll/7z.so in: {}'.format(dll_paths))
 
 #C = ffi.dlopen(None)
-C = ffi.dlopen(find_library('c'))
+C = ffi.dlopen(find_library('api-ms-win-crt-heap-|1.1.0.dll'))
 
 from .winhelpers import get_prop_val, guidp2uuid, alloc_propvariant, RNOK
 
