@@ -12,6 +12,7 @@ import os.path
 import sys
 
 import logging
+import ctypes
 
 log = logging.getLogger(__name__)
 if os.environ.get('DEBUG'):
@@ -96,6 +97,7 @@ if dll7z is None:
     raise Exception('Could not find 7z.dll/7z.so in: {}'.format(dll_paths))
 
 #C = ffi.dlopen(None)
+C = ffi.dlopen(ctypes.util.find_library('c'))
 
 from .winhelpers import get_prop_val, guidp2uuid, alloc_propvariant, RNOK
 
