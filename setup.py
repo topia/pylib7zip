@@ -12,7 +12,7 @@ setup(
 	author_email=author.group('email'),
 	license=lib7zip.__license__,
 	description=lib7zip.__doc__,
-	long_description=open('README').read(),
+	long_description=open('README.rst').read(),
 	#build settings
 	install_requires=['enum34'] if sys.version_info < (3,4) else [],
 	packages=['lib7zip', ],
