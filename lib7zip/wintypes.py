@@ -45,7 +45,7 @@ HRESULT PropVariantClear(PROPVARIANT *pvar);
 #HRESULT values
 class HRESULT(IntEnum):
 	S_OK = 0x00000000  # Operation successful
-	S_FALSE = -1       # Generic Error
+	S_FALSE = 1       # Operation successful but returned no results
 	E_ABORT = 0x80004004  # Operation aborted
 	E_ACCESSDENIED = 0x80070005  # General access denied error
 	E_FAIL = 0x80004005  # Unspecified failure
@@ -61,6 +61,7 @@ class HRESULT(IntEnum):
 	def desc(self):
 		descriptions = {
 			HRESULT.S_OK : 'Operation Successful',
+			HRESULT.S_FALSE : 'Operation Successful but returned no results',
 			HRESULT.E_ABORT : 'Operation Aborted',
 			HRESULT.E_ACCESSDENIED : 'General Access Denied Error',
 			HRESULT.E_FAIL : 'Unspecified Failure',

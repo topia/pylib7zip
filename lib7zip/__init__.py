@@ -94,7 +94,7 @@ for dll_path in dll_paths:
         break
 
 if dll7z is None:
-    raise Exception('Could not find 7z.dll/7z.so in: {}'.format(dll_paths))
+    raise ImportError('Could not find 7z.dll/7z.so in: {}'.format(dll_paths))
 
 #C = ffi.dlopen(None)
 C = ffi.dlopen('api-ms-win-crt-heap-l1-1-0.dll')
@@ -164,6 +164,14 @@ def get_format_info():
     }
 
 
+def get_extensions_to_formats():
+    exts = {}
+    for k, v in formats.items():
+        for ext in v.extensions:
+            exts.setdefault(ext, []).append(k)
+    return exts
+
+
 Method = namedtuple(
     'Method',
     ('name', 'id', 'encoder', 'decoder', 'encoder_assigned', 'decoder_assigned')
@@ -193,6 +201,7 @@ def get_method_info():
 getting_meths = False
 log.debug('initializing')
 formats = get_format_info()
+extensions = get_extensions_to_formats()
 # print(formats.values())
 max_sig_size = max(len(f.start_signature or b'') for f in formats.values())
 getting_meths = True

@@ -1,18 +1,26 @@
+import os
 from functools import partial
 import io
+from typing import Any, Optional, Iterator
+from pathlib import Path
 
-from . import ffi, dll7z, max_sig_size, formats, log
+from . import ffi, dll7z, max_sig_size, formats, log, C, VARTYPE, extensions
 from . import py7ziptypes
+from .py7ziptypes import ArchiveProps
 
 from .winhelpers import uuid2guidp, get_prop_val, RNOK
 
 from .open_callback import ArchiveOpenCallback
 from .extract_callback import ArchiveExtractToDirectoryCallback, ArchiveExtractToStreamCallback
-from .stream import FileInStream
+from .stream import FileInStream, WrapInStream
 from .cmpcodecsinfo import CompressCodecsInfo
+from .wintypes import HRESULT
+
 
 class Archive:
-	def __init__(self, filename, forcetype=None, password=None):
+	archive = None
+
+	def __init__(self, filename: os.PathLike, stream=None, in_stream=None, forcetype: str=None, password: str=None):
 		self.password = password
 		self.tmp_archive = ffi.new('void**')
 		self._path2idx = {}
@@ -20,14 +28,21 @@ class Archive:
 		self._num_items = None
 		iid = uuid2guidp(py7ziptypes.IID_IInArchive)
 
-		self.stream = FileInStream(filename)
-		stream_inst = self.stream.instances[py7ziptypes.IID_IInStream]
+		filename = Path(filename)
+		if not in_stream:
+			self.stream = FileInStream(stream or filename)
+			stream_inst = self.stream.instances[py7ziptypes.IID_IInStream]
+		else:
+			self.stream = None
+			stream_inst = in_stream
 		
 		if forcetype is not None:
+			type_name = forcetype
 			format = formats[forcetype]
 		else:
-			format = self._guess_format()
-			
+			type_name, format = self._guess_format(filename, stream_inst)
+
+		self.type_name = type_name
 		classid = uuid2guidp(format.classid)
 		
 		log.debug('Create Archive (class=%r, iface=%r)',
@@ -48,9 +63,9 @@ class Archive:
 
 		set_cmpcodecsinfo_ptr = ffi.new('void**')
 		archive.vtable.QueryInterface(
-			archive, uuid2guidp(py7ziptypes.IID_ISetCompressCodecsInfo), set_cmpcodecsinfo_ptr);
+			archive, uuid2guidp(py7ziptypes.IID_ISetCompressCodecsInfo), set_cmpcodecsinfo_ptr)
 
-		if set_cmpcodecsinfo_ptr != ffi.NULL:
+		if set_cmpcodecsinfo_ptr != ffi.NULL and set_cmpcodecsinfo_ptr[0] != ffi.NULL:
 			log.debug('Setting Compression Codec Info')
 			self.set_cmpcodecs_info = set_cmpcodecsinfo = \
 				 ffi.cast('ISetCompressCodecsInfo*', set_cmpcodecsinfo_ptr[0])
@@ -60,6 +75,8 @@ class Archive:
 			cmp_codec_info_inst = cmp_codec_info.instances[py7ziptypes.IID_ICompressCodecsInfo]
 			set_cmpcodecsinfo.vtable.SetCompressCodecsInfo(set_cmpcodecsinfo, cmp_codec_info_inst)
 			log.debug('compression codec info set')
+		else:
+			self.set_cmpcodecs_info = None
 
 		#old_vtable = archive.vtable
 		log.debug('opening archive')
@@ -78,16 +95,43 @@ class Archive:
 		assert archive.vtable.GetNumberOfItems != ffi.NULL
 		assert archive.vtable.GetProperty != ffi.NULL
 		log.debug('successfully opened archive')
+
+	def _formats_by_path(self, path: Path) -> Iterator[str]:
+		for suffix in reversed(path.suffixes):
+			names = extensions.get(suffix.lstrip('.'), None)
+			if names is not None:
+				yield from names
 	
-	def _guess_format(self):
+	def _guess_format(self, filename: Path, in_stream):
 		log.debug('guess format')
-		file = self.stream.filelike
+
+		candidate_format_names = set(self._formats_by_path(filename))
+		# FIXME: sync to 7-zip preference
+		if candidate_format_names == {'Udf', 'Iso'}:
+			candidate_format_names = ['Udf', 'Iso']
+		file = WrapInStream(in_stream)
+		file.seek(0)
 		sigcmp = file.read(max_sig_size)
-		for name, format in formats.items():
+		file.seek(0)
+		del file
+
+		for name in candidate_format_names:
+			format = formats[name]
 			if format.start_signature and sigcmp.startswith(format.start_signature):
 				log.info('guessed file format: %s' % name)
-				file.seek(0)
-				return format
+				return name, format
+
+		for name in candidate_format_names:
+			format = formats[name]
+			log.info('guessed file format: %s' % name)
+			return name, format
+
+		for name, format in formats.items():
+			if name in candidate_format_names:
+				continue
+			if format.start_signature and sigcmp.startswith(format.start_signature):
+				log.info('guessed file format: %s' % name)
+				return name, format
 
 		assert False
 
@@ -102,13 +146,19 @@ class Archive:
 	
 	def close(self):
 		log.debug('Archive.close()')
-		if self.archive or self.archive.vtable or self.archive.vtable.Close == ffi.NULL:
+		if self.set_cmpcodecs_info is not None:
+			self.set_cmpcodecs_info.vtable.Release(self.set_cmpcodecs_info)
+			self.set_cmpcodecs_info = None
+		if self.archive is None:
+			return
+		if not self.archive or not self.archive.vtable or self.archive.vtable.Close == ffi.NULL:
 			log.warn('close failed, NULLs')
 			return
 		RNOK(self.archive.vtable.Close(self.archive))
+		RNOK(self.archive.vtable.Release(self.archive))
+		self.archive = None
 	
 	def __len__(self):
-		log.debug('len(Archive)')
 		if self._num_items is None:
 			num_items = ffi.new('uint32_t*')
 			#import pdb; pdb.set_trace()
@@ -129,7 +179,6 @@ class Archive:
 			return itm
 
 	def __getitem__(self, index):
-		log.debug('Archive[%r]', index)
 		if isinstance(index, int):
 			if index > len(self):
 				raise IndexError(index)
@@ -148,7 +197,6 @@ class Archive:
 	def __iter__(self):
 		log.debug('iter(Archive)')
 		for i in range(len(self)):
-			log.debug('getting %dth item', i)
 			yield self[i]
 			#isdir = get_bool_prop(i, py7ziptypes.kpidIsDir, self.itm_prop_fn)
 			#path = get_string_prop(i, py7ziptypes.kpidPath, self.itm_prop_fn)
@@ -156,8 +204,66 @@ class Archive:
 			#yield isdir, path, crc
 		
 	def __getattr__(self, attr):
-		pass
-	
+		propid = getattr(py7ziptypes.ArchiveProps, attr)
+		return get_prop_val(
+			partial(self.archive.vtable.GetArchiveProperty,
+				self.archive, propid))
+
+	@property
+	def arc_props_len(self) -> int:
+		num = ffi.new('uint32_t*')
+		RNOK(self.archive.vtable.GetNumberOfArchiveProperties(self.archive, num))
+		return int(num[0])
+
+	def get_arc_prop_info(self, index: int) -> tuple[Optional[str], ArchiveProps, VARTYPE]:
+		propid = ffi.new('PROPID*')
+		vt = ffi.new('VARTYPE*')
+		name = ffi.new('wchar_t**')
+		try:
+			RNOK(self.archive.vtable.GetArchivePropertyInfo(self.archive, index, name, propid, vt))
+			if name[0] != ffi.NULL:
+				name_str = ffi.string(name[0])
+			else:
+				name_str = None
+		finally:
+			if name[0] != ffi.NULL:
+				C.free(name[0])
+		return name_str, ArchiveProps(propid[0]), VARTYPE(vt[0])
+
+	def iter_arc_props_info(self) -> Iterator[tuple[Optional[str], ArchiveProps, VARTYPE]]:
+		for i in range(self.arc_props_len):
+			yield self.get_arc_prop_info(i)
+
+	def iter_arc_props(self) -> Iterator[tuple[Optional[str], ArchiveProps, VARTYPE, Any]]:
+		for name, prop, vt in self.iter_arc_props_info():
+			val = get_prop_val(partial(self.archive.vtable.GetArchiveProperty, self.archive, prop))
+			yield name, prop, vt, val
+
+	@property
+	def props_len(self) -> int:
+		num = ffi.new('uint32_t*')
+		RNOK(self.archive.vtable.GetNumberOfProperties(self.archive, num))
+		return int(num[0])
+
+	def get_prop_info(self, index: int) -> tuple[Optional[str], ArchiveProps, VARTYPE]:
+		propid = ffi.new('PROPID*')
+		vt = ffi.new('VARTYPE*')
+		name = ffi.new('wchar_t**')
+		try:
+			RNOK(self.archive.vtable.GetPropertyInfo(self.archive, index, name, propid, vt))
+			if name[0] != ffi.NULL:
+				name_str = ffi.string(name[0])
+			else:
+				name_str = None
+		finally:
+			if name[0] != ffi.NULL:
+				C.free(name[0])
+		return name_str, ArchiveProps(propid[0]), VARTYPE(vt[0])
+
+	def iter_props_info(self) -> Iterator[tuple[Optional[str], ArchiveProps, VARTYPE]]:
+		for i in range(self.props_len):
+			yield self.get_prop_info(i)
+
 	def extract(self, directory='', password=None):
 		log.debug('Archive.extract()')
 		'''
@@ -214,3 +320,35 @@ class ArchiveItem():
 	def __getattr__(self, attr):
 		propid = getattr(py7ziptypes.ArchiveProps, attr)
 		return get_prop_val(partial(self.archive.itm_prop_fn, self.index, propid))
+
+	def iter_props(self) -> Iterator[tuple[Optional[str], ArchiveProps, VARTYPE, Any]]:
+		for name, prop, vt in self.archive.iter_props_info():
+			val = get_prop_val(partial(self.archive.itm_prop_fn, self.index, prop))
+			yield name, prop, vt, val
+
+	def get_in_stream(self) -> Optional[Any]:
+		get_void_ptr = ffi.new('void**')
+		archive = self.archive.archive
+		res = archive.vtable.QueryInterface(
+			archive, uuid2guidp(py7ziptypes.IID_IInArchiveGetStream), get_void_ptr)
+		if res != HRESULT.S_OK.value or get_void_ptr[0] == ffi.NULL:
+			return None
+		get_stream = ffi.cast('IInArchiveGetStream*', get_void_ptr[0])
+		get_void_ptr[0] = ffi.NULL
+		get_sub_seq_stream_ptr = ffi.new('ISequentialInStream**')
+		res = get_stream.vtable.GetStream(get_stream, self.index, get_sub_seq_stream_ptr)
+		if res != HRESULT.S_OK.value or get_sub_seq_stream_ptr[0] == ffi.NULL:
+			get_stream.vtable.Release(get_stream)
+			return None
+		sub_seq_stream = ffi.cast('ISequentialInStream*', get_sub_seq_stream_ptr[0])
+		get_void_ptr[0] = ffi.NULL
+		res = sub_seq_stream.vtable.QueryInterface(
+			sub_seq_stream, uuid2guidp(py7ziptypes.IID_IInStream), get_void_ptr)
+		if res != HRESULT.S_OK.value or get_void_ptr[0] == ffi.NULL:
+			get_stream.vtable.Release(get_stream)
+			sub_seq_stream.vtable.Release(sub_seq_stream)
+			return None
+		in_stream = ffi.cast('IInStream*', get_void_ptr[0])
+		get_stream.vtable.Release(get_stream)
+		sub_seq_stream.vtable.Release(sub_seq_stream)
+		return in_stream

@@ -50,6 +50,15 @@ typedef struct {
 
 typedef struct {
 	$CDEF_IUnknown
+	HRESULT(*GetStream)(void* self, uint32_t index, ISequentialInStream **stream);
+} IInArchiveGetStream_vtable;
+
+typedef struct {
+	IInArchiveGetStream_vtable* vtable;
+} IInArchiveGetStream;
+
+typedef struct {
+	$CDEF_IUnknown
 	HRESULT(*SetTotal)(void* self, uint64_t total);
 	HRESULT(*SetCompleted)(void* self, const uint64_t *completeValue);
 	HRESULT(*GetStream)(void* self, uint32_t index, ISequentialOutStream **outStream,  int32_t askExtractMode);
@@ -255,69 +264,103 @@ IID_IGetFolderArcProps = createIID('08', '11')
 class ArchiveProps(IntEnum):
 	"""Archive and Archive Item Propertys"""
 	noproperty = 0  # kpidNoProperty
-	mainsubfile = 1  # kpidMainSubfile
-	handleritemindex = 2  # kpidHandlerItemIndex
+	main_sub_file = 1  # kpidMainSubfile
+	handler_item_index = 2  # kpidHandlerItemIndex
 	path = 3  # kpidPath
 	name = 4  # kpidName
 	extension = 5  # kpidExtension
-	isdir = 6  # kpidIsDir
+	is_dir = 6  # kpidIsDir
 	size = 7  # kpidSize
-	packed_size = 8  # kpidPackSize
+	pack_size = 8  # kpidPackSize
 	attrib = 9  # kpidAttrib
 	ctime = 10  # kpidCTime
 	atime = 11  # kpidATime
 	mtime = 12  # kpidMTime
-	issolid = 13  # kpidSolid
-	iscommented = 14  # kpidCommented
-	isencrypted = 15  # kpidEncrypted
-	splitbefore = 16  # kpidSplitBefore
-	splitafter = 17  # kpidSplitAfter
-	dictionarysize = 18  # kpidDictionarySize
+	solid = 13  # kpidSolid
+	commented = 14  # kpidCommented
+	encrypted = 15  # kpidEncrypted
+	split_before = 16  # kpidSplitBefore
+	split_after = 17  # kpidSplitAfter
+	dictionary_size = 18  # kpidDictionarySize
 	crc = 19  # kpidCRC
 	type = 20  # kpidType
-	isanti = 21  # kpidIsAnti
+	is_anti = 21  # kpidIsAnti
 	method = 22  # kpidMethod
-	hostos = 23  # kpidHostOS
-	filesystem = 24  # kpidFileSystem
+	host_os = 23  # kpidHostOS
+	file_system = 24  # kpidFileSystem
 	user = 25  # kpidUser
 	group = 26  # kpidGroup
 	block = 27  # kpidBlock
-	comment = 27  # kpidComment
-	position = 28  # kpidPosition
-	prefix = 29  # kpidPrefix
-	numsubdirs = 30  # kpidNumSubDirs
-	numsubfiles = 31  # kpidNumSubFiles
-	unpackver = 32  # kpidUnpackVer
-	volume = 33  # kpidVolume
-	isvolume = 34  # kpidIsVolume
-	offset = 35  # kpidOffset
-	links = 36  # kpidLinks
-	numblocks = 37  # kpidNumBlocks
-	numvolumes = 38  # kpidNumVolumes
-	timetype = 39  # kpidTimeType
-	bit64 = 40  # kpidBit64
-	bigendian = 41  # kpidBigEndian
-	cpu = 42  # kpidCpu
-	physize = 43  # kpidPhySize
-	headerssize = 44  # kpidHeadersSize
-	checksum = 45  # kpidChecksum
-	characts = 46  # kpidCharacts
-	va = 47  # kpidVa
-	id = 48   # kpidId
-	shortname = 49  # kpidShortName
-	creatorapp = 50  # kpidCreatorApp
-	sectorsize = 51  # kpidSectorSize
-	posixattrib = 52  # kpidPosixAttrib
-	link = 53  # kpidLink
-	error = 54  # kpidError
-
-	totalsize = 0x1100  # kpidTotalSize
-	freespace = 0x1100 + 1  # kpidFreeSpace
-	clustersize = 0x1100 + 2  # kpidClusterSize
-	volumename = 0x1100 + 3  # kpidVolumeName
-
-	localname = 0x1200  # kpidLocalName
-	provider = 0x1200 + 1  # kpidProvider
+	comment = 28  # kpidComment
+	position = 29  # kpidPosition
+	prefix = 30  # kpidPrefix
+	num_sub_dirs = 31  # kpidNumSubDirs
+	num_sub_files = 32  # kpidNumSubFiles
+	unpack_ver = 33  # kpidUnpackVer
+	volume = 34  # kpidVolume
+	is_volume = 35  # kpidIsVolume
+	offset = 36  # kpidOffset
+	links = 37  # kpidLinks
+	num_blocks = 38  # kpidNumBlocks
+	num_volumes = 39  # kpidNumVolumes
+	time_type = 40  # kpidTimeType
+	bit64 = 41  # kpidBit64
+	big_endian = 42  # kpidBigEndian
+	cpu = 43  # kpidCpu
+	phy_size = 44  # kpidPhySize
+	headers_size = 45  # kpidHeadersSize
+	checksum = 46  # kpidChecksum
+	characts = 47  # kpidCharacts
+	va = 48  # kpidVa
+	id = 49   # kpidId
+	short_name = 50  # kpidShortName
+	creator_app = 51  # kpidCreatorApp
+	sector_size = 52  # kpidSectorSize
+	posix_attrib = 53  # kpidPosixAttrib
+	symlink = 54  # kpidSymLink
+	error = 55  # kpidError
+	total_size = 56	 # kpidTotalSize
+	free_space = 57  # kpidFreeSpace
+	cluster_size = 58  # kpidClusterSize
+	volume_name = 59  # kpidVolumeName
+	local_name = 60  # kpidLocalName
+	provider = 61  # kpidProvider
+	nt_secure = 62  # kpidNtSecure
+	is_alt_stream = 63  # kpidIsAltStream
+	is_aux = 64  # kpidIsAux
+	is_deleted = 65  # kpidIsDeleted
+	is_tree = 66  # kpidIsTree
+	sha1 = 67  # kpidSha1
+	sha256 = 68  # kpidSha256
+	error_type = 69  # kpidErrorType
+	num_errors = 70  # kpidNumErrors
+	error_flags = 71  # kpidErrorFlags
+	warning_flags = 72  # kpidWarningFlags
+	warning = 73  # kpidWarning
+	num_streams = 74  # kpidNumStreams
+	num_alt_streams = 75  # kpidNumAltStreams
+	alt_streams_size = 76  # kpidAltStreamsSize
+	virtual_size = 77  # kpidVirtualSize
+	unpack_size = 78  # kpidUnpackSize
+	total_phy_size = 79  # kpidTotalPhySize
+	volume_index = 80  # kpidVolumeIndex
+	sub_type = 81  # kpidSubType
+	short_comment = 82  # kpidShortComment
+	code_page = 83  # kpidCodePage
+	is_not_arc_type = 84  # kpidIsNotArcType
+	phy_size_cant_be_detected = 85  # kpidPhySizeCantBeDetected
+	zeros_tail_is_allowed = 86  # kpidZerosTailIsAllowed
+	tail_size = 87  # kpidTailSize
+	embedded_stub_size = 88  # kpidEmbeddedStubSize
+	nt_reparse = 89  # kpidNtReparse
+	hard_link = 90  # kpidHardLink
+	i_node = 91  # kpidINode
+	stream_id = 92  # kpidStreamId
+	read_only = 93  # kpidReadOnly
+	out_name = 94  # kpidOutName
+	copy_link = 95  # kpidCopyLink
+	arc_file_name = 96  # kpidArcFileName
+	is_hash	= 97  # kpidIsHash
 
 	userdefined = 0x10000  # kpidUserDefined
 
