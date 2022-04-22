@@ -193,7 +193,7 @@ def get_method_info():
 getting_meths = False
 log.debug('initializing')
 formats = get_format_info()
-print(formats.values())
+# print(formats.values())
 max_sig_size = max(len(f.start_signature or b'') for f in formats.values())
 getting_meths = True
 methods = get_method_info()
