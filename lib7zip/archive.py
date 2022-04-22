@@ -6,7 +6,7 @@ from pathlib import Path
 
 from . import ffi, dll7z, max_sig_size, formats, log, C, VARTYPE, extensions
 from . import py7ziptypes
-from .py7ziptypes import ArchiveProps
+from .py7ziptypes import ArchiveProps, OperationResult
 
 from .winhelpers import uuid2guidp, get_prop_val, RNOK
 
@@ -15,6 +15,12 @@ from .extract_callback import ArchiveExtractToDirectoryCallback, ArchiveExtractT
 from .stream import FileInStream, WrapInStream
 from .cmpcodecsinfo import CompressCodecsInfo
 from .wintypes import HRESULT
+
+
+class ExtractionError(Exception):
+    def __init__(self, res: OperationResult):
+        self.res = res
+        self.msg = 'Extraction failed with code: {}'.format(res)
 
 
 class Archive:
@@ -281,6 +287,8 @@ class Archive:
         RNOK(self.archive.vtable.Extract(self.archive, ffi.NULL, 0xFFFFFFFF, 0, callback_inst))
         log.debug('finished extract')
         log.debug('totally done')
+        if callback.res != OperationResult.kOK:
+            raise ExtractionError(callback.res)
 
 class ArchiveItem():
     def __init__(self, archive, index):
@@ -303,6 +311,8 @@ class ArchiveItem():
         log.debug('starting extract of %s!', self.path)
         RNOK(self.archive.archive.vtable.Extract(self.archive.archive, ffi.NULL, 0xFFFFFFFF, 0, callback_inst))
         log.debug('finished extract')
+        if callback.res != OperationResult.kOK:
+            raise ExtractionError(callback.res)
     #C.free(indices_p)
 
     @property

@@ -66,6 +66,8 @@ if 'win' in sys.platform:
 
     ole32 = ffi.dlopen('ole32')
     free_propvariant = lambda x: ole32.PropVariantClear(x)
+    oleaut32 = ffi.dlopen('oleaut32')
+    alloc_string = lambda x: oleaut32.SysAllocString(ffi.new('wchar_t[]', x))
 else:
     def free_propvariant(void_p):
         # TODO make smarter

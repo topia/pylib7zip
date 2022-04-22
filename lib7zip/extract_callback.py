@@ -5,7 +5,7 @@ from .py7ziptypes import IID_ICryptoGetTextPassword, IID_IArchiveExtractCallback
     OperationResult, AskMode
 
 from .wintypes import HRESULT
-from . import log, ffi, C, py7ziptypes
+from . import log, ffi, C, py7ziptypes, alloc_string
 from .simplecom import IUnknownImpl
 from .stream import FileOutStream
 
@@ -23,7 +23,8 @@ class ArchiveExtractCallback(IUnknownImpl):
     def __init__(self, password=''):
         #self.out_file = FileOutStream(file)
         #self.password = ffi.new('char[]', (password or '').encode('ascii'))
-        self.password = ffi.new('wchar_t[]', password or '')
+        self.res = None
+        self.password = password or ''
         #password = password or ''
         '''
         self._password = ffi.gc(C.malloc(ffi.sizeof('wchar_t') * len(password) + 1), C.free)
@@ -66,17 +67,18 @@ class ArchiveExtractCallback(IUnknownImpl):
         if res == OperationResult.kOK:
             log.info('Operational Result: %s', res.name)
         else:
-            log.warn('Operational Result: %s', res.name)
+            log.warning('Operational Result: %s', res.name)
+        self.res = res
 
         self.cleanup()
         return HRESULT.S_OK.value
 
     def CryptoGetTextPassword(self, me, password):
-        log.debug('CryptoGetTextPassword me=%r password=%r%r', me, ffi.string(self.password), self.password)
+        log.debug('CryptoGetTextPassword me=%r password=%r', me, self.password)
         assert password[0] == ffi.NULL
         #log.debug('passowrd?=%s', ffi.string(password[0]))
         #password = ffi.cast('wchar_t**', password)
-        password[0] = self.password
+        password[0] = alloc_string(self.password)
         #password[0] = ffi.NULL
         log.debug('CryptoGetTextPassword returning, password=%s', ffi.string(password[0]))
         return HRESULT.S_OK.value

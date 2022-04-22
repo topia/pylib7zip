@@ -38,8 +38,11 @@ typedef struct {
 
 
 typedef uint32_t HRESULT;
+typedef wchar_t* BSTR;
+typedef wchar_t OLECHAR;
 
 HRESULT PropVariantClear(PROPVARIANT *pvar);
+BSTR SysAllocString(const OLECHAR *str);
 """
 
 #HRESULT values
