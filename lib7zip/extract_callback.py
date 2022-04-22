@@ -108,7 +108,7 @@ class ArchiveExtractToDirectoryCallback(ArchiveExtractCallback):
 
     def GetStream(self, me, index, outStream, askExtractMode):
         askExtractMode = AskMode(askExtractMode)
-        log.debug('GetStream(%d, -, %d)', index, askExtractMode)
+        log.debug('GetStream(%d, -, %r)', index, askExtractMode)
 
         if askExtractMode != AskMode.kExtract:
             return HRESULT.S_OK.value
@@ -118,7 +118,7 @@ class ArchiveExtractToDirectoryCallback(ArchiveExtractCallback):
         dirname = os.path.dirname(path)
         log.debug('extracting to: %s', path)
 
-        if self.archive[index].isdir:
+        if self.archive[index].is_dir:
             os.makedirs(path, exist_ok=True)
             outStream[0] = ffi.NULL
         else:
@@ -153,7 +153,7 @@ class ArchiveExtractToStreamCallback(ArchiveExtractCallback):
 
     def GetStream(self, me, index, outStream, askExtractMode):
         askExtractMode = AskMode(askExtractMode)
-        log.debug('GetStream(%d, -, %d)', index, askExtractMode)
+        log.debug('GetStream(%d, -, %r)', index, askExtractMode)
 
         if askExtractMode != AskMode.kExtract:
             return HRESULT.S_OK.value

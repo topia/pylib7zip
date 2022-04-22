@@ -44,16 +44,16 @@ def test_complex():
             try:
                 md = COMPLEX_MD[item.path]
             except KeyError as ex:
-                log.warn('key %s not present', ex.args[0])
+                log.warning('key %s not present', ex.args[0])
                 continue
 
-            assert item.isdir == md.isdir
+            assert item.is_dir == md.isdir
             if md.crc is None:
                 assert item.crc is None
             else:
                 assert item.crc == md.crc
 
-            if not item.isdir:
+            if not item.is_dir:
                 assert item.contents.decode('utf-8') == md.contents
         logging.debug('done iterating archives')
 

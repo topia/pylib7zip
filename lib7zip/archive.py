@@ -52,6 +52,7 @@ class Archive:
         RNOK(dll7z.CreateObject(classid, iid, self.tmp_archive))
         assert self.tmp_archive[0] != ffi.NULL
         self.archive = archive = ffi.cast('IInArchive*', self.tmp_archive[0])
+        archive.vtable.AddRef(archive)
 
         assert archive.vtable.GetNumberOfItems != ffi.NULL
         assert archive.vtable.GetProperty != ffi.NULL
@@ -146,16 +147,13 @@ class Archive:
 
     def close(self):
         log.debug('Archive.close()')
-        if self.set_cmpcodecs_info is not None:
-            self.set_cmpcodecs_info.vtable.Release(self.set_cmpcodecs_info)
-            self.set_cmpcodecs_info = None
         if self.archive is None:
             return
         if not self.archive or not self.archive.vtable or self.archive.vtable.Close == ffi.NULL:
             log.warn('close failed, NULLs')
             return
         RNOK(self.archive.vtable.Close(self.archive))
-        RNOK(self.archive.vtable.Release(self.archive))
+        self.archive.vtable.Release(self.archive)
         self.archive = None
 
     def __len__(self):
@@ -338,17 +336,14 @@ class ArchiveItem():
         get_sub_seq_stream_ptr = ffi.new('ISequentialInStream**')
         res = get_stream.vtable.GetStream(get_stream, self.index, get_sub_seq_stream_ptr)
         if res != HRESULT.S_OK.value or get_sub_seq_stream_ptr[0] == ffi.NULL:
-            get_stream.vtable.Release(get_stream)
             return None
         sub_seq_stream = ffi.cast('ISequentialInStream*', get_sub_seq_stream_ptr[0])
+        sub_seq_stream.vtable.AddRef(sub_seq_stream)
         get_void_ptr[0] = ffi.NULL
         res = sub_seq_stream.vtable.QueryInterface(
             sub_seq_stream, uuid2guidp(py7ziptypes.IID_IInStream), get_void_ptr)
         if res != HRESULT.S_OK.value or get_void_ptr[0] == ffi.NULL:
-            get_stream.vtable.Release(get_stream)
             sub_seq_stream.vtable.Release(sub_seq_stream)
             return None
         in_stream = ffi.cast('IInStream*', get_void_ptr[0])
-        get_stream.vtable.Release(get_stream)
-        sub_seq_stream.vtable.Release(sub_seq_stream)
         return in_stream

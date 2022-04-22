@@ -40,7 +40,7 @@ class ArchiveOpenCallback(IUnknownImpl):
 
     def GetProperty(self, me, propID, value):
         log.debug('GetProperty propID={}'.format(propID))
-        value.vt = wintypes.VT_EMPTY
+        value.vt = wintypes.VARTYPE.VT_EMPTY
         return HRESULT.S_OK.value
 
     def GetStream(self, me, name, inStream):
