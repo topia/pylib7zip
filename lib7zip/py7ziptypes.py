@@ -371,6 +371,13 @@ class ArchiveProps(IntEnum):
 
     userdefined = 0x10000  # kpidUserDefined
 
+    @classmethod
+    def _missing_(cls, value: int) -> 'ArchiveProps':
+        v = int.__new__(cls, value)
+        v._name_ = 'kpid{}'.format(value)
+        v._value_ = value
+        return v
+
 class OperationResult(Enum):
     kOK = 0
     kUnSupportedMethod = 1
