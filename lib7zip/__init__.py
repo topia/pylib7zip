@@ -69,6 +69,7 @@ if 'win' in sys.platform:
     free_propvariant = lambda x: ole32.PropVariantClear(x)
     oleaut32 = ffi.dlopen('oleaut32')
     alloc_string = lambda x: oleaut32.SysAllocString(ffi.new('wchar_t[]', x))
+    free_string = lambda x: oleaut32.SysFreeString(x)
 else:
     libcname = 'c'
     bstr_len_size = ffi.sizeof('uint32_t')
@@ -76,8 +77,7 @@ else:
         # TODO make smarter
         pvar = ffi.cast('PROPVARIANT*', void_p)
         if pvar.vt == wintypes.VARTYPE.VT_BSTR and pvar.bstrVal != ffi.NULL:
-            addr = ffi.cast('void*', pvar.bstrVal) - bstr_len_size
-            C.free(addr)
+            free_string(pvar.bstrVal)
 
         C.memset(pvar, 0, ffi.sizeof('PROPVARIANT'))
 
@@ -96,6 +96,11 @@ else:
         string_ptr = ffi.cast('OLECHAR*', ptr + bstr_len_size)
         ffi.memmove(string_ptr, b, ffi.sizeof(b))
         return string_ptr
+
+    def free_string(addr):
+        if not isinstance(addr, int):
+            addr = ffi.cast('void*', addr)
+        C.free(addr - bstr_len_size)
 
 log.info('dll_paths: %r', dll_paths)
 dll7z = None

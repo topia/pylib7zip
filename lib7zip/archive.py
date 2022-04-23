@@ -4,7 +4,10 @@ import io
 from typing import Any, Optional, Iterator
 from pathlib import Path
 
-from . import ffi, dll7z, max_sig_size, formats, log, C, VARTYPE, extensions
+from . import (
+    ffi, dll7z, max_sig_size, formats, log, C, VARTYPE, extensions,
+    free_string,
+)
 from . import py7ziptypes
 from .py7ziptypes import ArchiveProps, OperationResult
 
@@ -231,7 +234,7 @@ class Archive:
                 name_str = None
         finally:
             if name[0] != ffi.NULL:
-                C.free(name[0])
+                free_string(name[0])
         return name_str, ArchiveProps(propid[0]), VARTYPE(vt[0])
 
     def iter_arc_props_info(self) -> Iterator[tuple[Optional[str], ArchiveProps, VARTYPE]]:
@@ -261,7 +264,7 @@ class Archive:
                 name_str = None
         finally:
             if name[0] != ffi.NULL:
-                C.free(name[0])
+                free_string(name[0])
         return name_str, ArchiveProps(propid[0]), VARTYPE(vt[0])
 
     def iter_props_info(self) -> Iterator[tuple[Optional[str], ArchiveProps, VARTYPE]]:

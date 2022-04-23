@@ -43,6 +43,7 @@ typedef wchar_t OLECHAR;
 
 HRESULT PropVariantClear(PROPVARIANT *pvar);
 BSTR SysAllocString(const OLECHAR *str);
+void SysFreeString(BSTR bstr);
 """
 
 #HRESULT values
