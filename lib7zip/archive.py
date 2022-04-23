@@ -343,7 +343,7 @@ class ArchiveItem():
             val = get_prop_val(partial(self.archive.itm_prop_fn, self.index, prop))
             yield name, prop, vt, val
 
-    def get_in_stream(self) -> Optional[Any]:
+    def get_seq_in_stream(self) -> Optional[Any]:
         get_void_ptr = ffi.new('void**')
         archive = self.archive.archive
         res = archive.vtable.QueryInterface(
@@ -358,11 +358,17 @@ class ArchiveItem():
             return None
         sub_seq_stream = ffi.cast('ISequentialInStream*', get_sub_seq_stream_ptr[0])
         sub_seq_stream.vtable.AddRef(sub_seq_stream)
-        get_void_ptr[0] = ffi.NULL
-        res = sub_seq_stream.vtable.QueryInterface(
-            sub_seq_stream, uuid2guidp(py7ziptypes.IID_IInStream), get_void_ptr)
+        return sub_seq_stream
+
+    def get_in_stream(self) -> Optional[Any]:
+        get_void_ptr = ffi.new('void**')
+        seq_in_stream = self.get_seq_in_stream()
+        if seq_in_stream is None:
+            return None
+        res = seq_in_stream.vtable.QueryInterface(
+            seq_in_stream, uuid2guidp(py7ziptypes.IID_IInStream), get_void_ptr)
         if res != HRESULT.S_OK.value or get_void_ptr[0] == ffi.NULL:
-            sub_seq_stream.vtable.Release(sub_seq_stream)
+            seq_in_stream.vtable.Release(seq_in_stream)
             return None
         in_stream = ffi.cast('IInStream*', get_void_ptr[0])
         return in_stream

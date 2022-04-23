@@ -8,7 +8,16 @@ typedef uint32_t PROPID; /*actually an enum, often a different enum for each fun
 
 typedef struct {
 	$CDEF_IUnknown
-	/* Inherited from ISequentialInstream */
+	HRESULT (*Read)(void* self, uint8_t *data, uint32_t size, uint32_t *processedSize);
+} _ISequentialInStream_vtable;
+
+typedef struct{
+	_ISequentialInStream_vtable* vtable;
+} ISequentialInStream;
+
+typedef struct {
+	$CDEF_IUnknown
+	/* Inherited from ISequentialInStream */
 	HRESULT (*Read)(void* self, uint8_t *data, uint32_t size, uint32_t *processedSize);
 	/* Own methods */
 	HRESULT (*Seek)(void* self, int64_t offset, uint32_t seekOrigin, uint64_t *newPosition);
@@ -35,8 +44,6 @@ typedef struct {
 
 typedef IOutStream ISequentialOutStream;
 typedef _IOutStream_vtable _ISequentialOutStream_vtable;
-typedef IInStream ISequentialInStream;
-typedef _IInStream_vtable _ISequentialInStream_vtable;
 
 typedef struct {
 	$CDEF_IUnknown
