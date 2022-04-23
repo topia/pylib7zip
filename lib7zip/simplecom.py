@@ -63,7 +63,7 @@ class IUnknownImpl:
             #out_ref[0] = me
             return HRESULT.S_OK.value
         else:
-            log.warning('Unknown GUID {!r} on {}'.format(uu, type(self).__name__))
+            log.debug('Unknown GUID {!r} on {}'.format(uu, type(self).__name__))
 
             out_ref[0] = ffi.NULL
             return HRESULT.E_NOINTERFACE.value
