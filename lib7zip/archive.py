@@ -115,29 +115,35 @@ class Archive:
     def _guess_format(self, filename: Path, in_stream):
         log.debug('guess format')
 
-        candidate_format_names = set(self._formats_by_path(filename))
+        format_names = set(self._formats_by_path(filename))
         # FIXME: sync to 7-zip preference
-        if candidate_format_names == {'Udf', 'Iso'}:
-            candidate_format_names = ['Udf', 'Iso']
+        if 'Iso' in format_names and 'Udf' in format_names:
+            # UDF is preferred over ISO
+            format_names = list(format_names)
+            iso_idx = format_names.index('Iso')
+            udf_idx = format_names.index('Udf')
+            if iso_idx < udf_idx:
+                format_names[iso_idx], format_names[udf_idx] = \
+                    format_names[udf_idx], format_names[iso_idx]
         file = WrapInStream(in_stream)
         file.seek(0)
         sigcmp = file.read(max_sig_size)
         file.seek(0)
         del file
 
-        for name in candidate_format_names:
+        for name in format_names:
             format = formats[name]
             if format.start_signature and sigcmp.startswith(format.start_signature):
                 log.info('guessed file format: %s' % name)
                 return name, format
 
-        for name in candidate_format_names:
+        for name in format_names:
             format = formats[name]
             log.info('guessed file format: %s' % name)
             return name, format
 
         for name, format in formats.items():
-            if name in candidate_format_names:
+            if name in format_names:
                 continue
             if format.start_signature and sigcmp.startswith(format.start_signature):
                 log.info('guessed file format: %s' % name)
