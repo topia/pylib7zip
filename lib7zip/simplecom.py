@@ -37,6 +37,8 @@ class IUnknownImpl:
             instance.vtable = vtable
 
             for name, method_type in ffi.typeof(vtable).item.fields:
+                if name in {'_IUnknown_Reserved1', '_IUnknown_Reserved2'}:
+                    continue
                 try:
                     method = self.methods[name]
                 except KeyError:

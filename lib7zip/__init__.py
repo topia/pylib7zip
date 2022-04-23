@@ -54,6 +54,7 @@ env_path = os.environ.get('7ZDLL_PATH')
 dll_paths = [env_path] if env_path else []
 
 if 'win' in sys.platform:
+    libcname = 'api-ms-win-crt-heap-l1-1-0.dll'
     log.info('autodetecting dll path from registry')
     from winreg import OpenKey, QueryValueEx, HKEY_LOCAL_MACHINE, KEY_READ
 
@@ -69,11 +70,14 @@ if 'win' in sys.platform:
     oleaut32 = ffi.dlopen('oleaut32')
     alloc_string = lambda x: oleaut32.SysAllocString(ffi.new('wchar_t[]', x))
 else:
+    libcname = 'c'
+    bstr_len_size = ffi.sizeof('uint32_t')
     def free_propvariant(void_p):
         # TODO make smarter
         pvar = ffi.cast('PROPVARIANT*', void_p)
-        if pvar.vt == wintypes.VT_BSTR and pvar.bstrVal != ffi.NULL:
-            C.free(pvar.bstrVal)
+        if pvar.vt == wintypes.VARTYPE.VT_BSTR and pvar.bstrVal != ffi.NULL:
+            addr = ffi.cast('void*', pvar.bstrVal) - bstr_len_size
+            C.free(addr)
 
         C.memset(pvar, 0, ffi.sizeof('PROPVARIANT'))
 
@@ -83,6 +87,15 @@ else:
     for suffix in suffixes:
         for prefix in prefixes:
             dll_paths.append(os.path.join(prefix, suffix))
+
+    def alloc_string(x):
+        b = ffi.new('wchar_t[]', x)
+        size = ffi.sizeof(b) + bstr_len_size
+        ptr = C.malloc(size)
+        ffi.cast('uint32_t*', ptr)[0] = ffi.sizeof(b) // ffi.sizeof('OLECHAR')
+        string_ptr = ffi.cast('OLECHAR*', ptr + bstr_len_size)
+        ffi.memmove(string_ptr, b, ffi.sizeof(b))
+        return string_ptr
 
 log.info('dll_paths: %r', dll_paths)
 dll7z = None
@@ -99,7 +112,7 @@ if dll7z is None:
     raise ImportError('Could not find 7z.dll/7z.so in: {}'.format(dll_paths))
 
 #C = ffi.dlopen(None)
-C = ffi.dlopen('api-ms-win-crt-heap-l1-1-0.dll')
+C = ffi.dlopen(libcname)
 
 from .winhelpers import get_prop_val, guidp2uuid, alloc_propvariant, RNOK
 
