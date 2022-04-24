@@ -14,7 +14,10 @@ from .py7ziptypes import ArchiveProps, OperationResult
 from .winhelpers import uuid2guidp, get_prop_val, RNOK
 
 from .open_callback import ArchiveOpenCallback
-from .extract_callback import ArchiveExtractToDirectoryCallback, ArchiveExtractToStreamCallback
+from .extract_callback import (
+    ArchiveExtractToDirectoryCallback,
+    ArchiveExtractToStreamCallback, ArchiveExtractCallback,
+)
 from .stream import FileInStream, WrapInStream
 from .cmpcodecsinfo import CompressCodecsInfo
 from .wintypes import HRESULT
@@ -289,15 +292,15 @@ class Archive:
         password = password or self.password
 
         callback = ArchiveExtractToDirectoryCallback(self, directory, password)
+        self.extract_with_callback(callback)
+
+    def extract_with_callback(self, callback: ArchiveExtractCallback):
         callback_inst = callback.instances[py7ziptypes.IID_IArchiveExtractCallback]
         assert self.archive.vtable.Extract != ffi.NULL
-        #import pdb; pdb.set_trace()
-        log.debug('started extract')
         RNOK(self.archive.vtable.Extract(self.archive, ffi.NULL, 0xFFFFFFFF, 0, callback_inst))
-        log.debug('finished extract')
-        log.debug('totally done')
         if callback.res != OperationResult.kOK:
             raise ExtractionError(callback.res)
+
 
 class ArchiveItem():
     def __init__(self, archive, index):
@@ -311,14 +314,10 @@ class ArchiveItem():
 
         self.callback = callback = ArchiveExtractToStreamCallback(file, self.index, password)
         self.cb_inst = callback_inst = callback.instances[py7ziptypes.IID_IArchiveExtractCallback]
-        #indices = ffi.new('const uint32_t indices[]', [self.index])
-
-        #indices_p = C.calloc(1, ffi.sizeof('uint32_t'))
-        #indices = ffi.cast('uint32_t*', indices_p)
-        #indices[0] = self.index
+        indices = ffi.new('uint32_t[]', [self.index])
 
         log.debug('starting extract of %s!', self.path)
-        RNOK(self.archive.archive.vtable.Extract(self.archive.archive, ffi.NULL, 0xFFFFFFFF, 0, callback_inst))
+        RNOK(self.archive.archive.vtable.Extract(self.archive.archive, indices, 1, 0, callback_inst))
         log.debug('finished extract')
         if callback.res != OperationResult.kOK:
             raise ExtractionError(callback.res)
