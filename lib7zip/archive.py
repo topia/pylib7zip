@@ -27,6 +27,11 @@ class ExtractionError(Exception):
     def __init__(self, res: OperationResult):
         self.res = res
         self.msg = 'Extraction failed with code: {}'.format(res)
+        
+
+class FormatGuessError(Exception):
+    def __init__(self):
+        super().__init__('failed to guess format')
 
 
 class Archive:
@@ -152,7 +157,7 @@ class Archive:
                 log.info('guessed file format: %s' % name)
                 return name, format
 
-        assert False
+        raise FormatGuessError()
 
     def __enter__(self, *args, **kwargs):
         return self
