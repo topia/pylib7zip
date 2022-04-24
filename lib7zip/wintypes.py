@@ -29,6 +29,7 @@ typedef struct {
 		double            dblVal;
 		char*             pcVal;
 		wchar_t*          bstrVal;
+		int64_t           hVal;
 		uint64_t          uhVal;
 		GUID*             puuid;
 		FILETIME          filetime;

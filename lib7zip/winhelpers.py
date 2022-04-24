@@ -99,10 +99,20 @@ def get_prop_val(fn, forcetype=None, checktype=None):
             checktype = forcetype
         assert pvar.vt == checktype
 
-    if vt in (VARTYPE.VT_UI4, VARTYPE.VT_UINT):
+    if vt == VARTYPE.VT_UI1:
+        return int(pvar.bVal)
+    elif vt == VARTYPE.VT_UI2:
+        return int(pvar.uiVal)
+    elif vt == VARTYPE.VT_I2:
+        return int(pvar.iVal)
+    elif vt in (VARTYPE.VT_UI4, VARTYPE.VT_UINT):
         return int(pvar.ulVal)
+    elif vt == VARTYPE.VT_I4:
+        return int(pvar.lVal)
     elif vt == VARTYPE.VT_UI8:
         return int(pvar.uhVal)
+    elif vt == VARTYPE.VT_I8:
+        return int(pvar.hVal)
     elif vt == VARTYPE.VT_BOOL:
         return int(pvar.bVal) != 0
     elif vt == VARTYPE.VT_CLSID:
@@ -119,4 +129,4 @@ def get_prop_val(fn, forcetype=None, checktype=None):
         delta = timedelta(microseconds=timestamp)
         return (jan01_1601 + delta).astimezone()
     else:
-        raise TypeError("type code %d not supported" % vt)
+        raise TypeError("type code %r not supported" % vt)
