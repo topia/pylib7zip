@@ -30,8 +30,11 @@ class ExtractionError(Exception):
         
 
 class FormatGuessError(Exception):
-    def __init__(self):
-        super().__init__('failed to guess format')
+    pass
+
+
+class ArchiveOpenError(Exception):
+    pass
 
 
 class Archive:
@@ -55,11 +58,15 @@ class Archive:
 
         if forcetype is not None:
             type_name = forcetype
-            format = formats[forcetype]
         else:
-            type_name, format = self._guess_format(filename, stream_inst)
+            for type_name in self.guess_formats(
+                    filename, WrapInStream(stream_inst)):
+                break
+            else:
+                raise FormatGuessError('failed to guess format')
 
         self.type_name = type_name
+        format = formats[type_name]
         classid = uuid2guidp(format.classid)
 
         log.debug('Create Archive (class=%r, iface=%r)',
@@ -99,7 +106,10 @@ class Archive:
         #old_vtable = archive.vtable
         log.debug('opening archive')
         maxCheckStartPosition = ffi.new('uint64_t*', 1 << 22)
-        RNOK(archive.vtable.Open(archive, stream_inst, maxCheckStartPosition, callback_inst))
+        res = archive.vtable.Open(archive, stream_inst, maxCheckStartPosition, callback_inst)
+        if res == HRESULT.S_FALSE.value:
+            raise ArchiveOpenError('open failed')
+        RNOK(res)
         self.itm_prop_fn = partial(archive.vtable.GetProperty, archive)
         #log.debug('what now?')
 
@@ -114,16 +124,18 @@ class Archive:
         assert archive.vtable.GetProperty != ffi.NULL
         log.debug('successfully opened archive')
 
-    def _formats_by_path(self, path: Path) -> Iterator[str]:
+    @staticmethod
+    def formats_by_path(path: Path) -> Iterator[str]:
         for suffix in reversed(path.suffixes):
             names = extensions.get(suffix.lstrip('.'), None)
             if names is not None:
                 yield from names
 
-    def _guess_format(self, filename: Path, in_stream):
+    @classmethod
+    def guess_formats(cls, filename: Path, file: io.BytesIO) -> Iterator[str]:
         log.debug('guess format')
 
-        format_names = set(self._formats_by_path(filename))
+        format_names = set(cls.formats_by_path(filename))
         # FIXME: sync to 7-zip preference
         if 'Iso' in format_names and 'Udf' in format_names:
             # UDF is preferred over ISO
@@ -133,31 +145,31 @@ class Archive:
             if iso_idx < udf_idx:
                 format_names[iso_idx], format_names[udf_idx] = \
                     format_names[udf_idx], format_names[iso_idx]
-        file = WrapInStream(in_stream)
         file.seek(0)
         sigcmp = file.read(max_sig_size)
         file.seek(0)
         del file
+        yielded = set()
 
         for name in format_names:
             format = formats[name]
             if format.start_signature and sigcmp.startswith(format.start_signature):
-                log.info('guessed file format: %s' % name)
-                return name, format
+                if name not in yielded:
+                    yield name
+                    yielded.add(name)
 
         for name in format_names:
-            format = formats[name]
-            log.info('guessed file format: %s' % name)
-            return name, format
+            if name not in yielded:
+                yield name
+                yielded.add(name)
 
         for name, format in formats.items():
             if name in format_names:
                 continue
             if format.start_signature and sigcmp.startswith(format.start_signature):
-                log.info('guessed file format: %s' % name)
-                return name, format
-
-        raise FormatGuessError()
+                if name not in yielded:
+                    yield name
+                    yielded.add(name)
 
     def __enter__(self, *args, **kwargs):
         return self
