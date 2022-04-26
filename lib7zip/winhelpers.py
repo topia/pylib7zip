@@ -127,6 +127,10 @@ def get_prop_val(fn, forcetype=None, checktype=None):
         #timestamp is now the number of seconds since Jan 1, 1601 CE
         jan01_1601 = datetime(year=1601, month=1, day=1, tzinfo=timezone.utc)
         delta = timedelta(microseconds=timestamp)
-        return (jan01_1601 + delta).astimezone()
+        dt = jan01_1601 + delta
+        try:
+            return dt.astimezone()
+        except OSError:
+            return dt
     else:
         raise TypeError("type code %r not supported" % vt)
