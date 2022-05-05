@@ -35,7 +35,7 @@ class ArchiveExtractCallback(IUnknownImpl):
 
         super().__init__()
 
-    def cleanup(self):
+    def cleanup(self, res: OperationResult):
         pass
 
     #HRESULT(*SetTotal)(void* self, uint64_t total);
@@ -70,7 +70,7 @@ class ArchiveExtractCallback(IUnknownImpl):
             log.warning('Operational Result: %s', res.name)
         self.res = res
 
-        self.cleanup()
+        self.cleanup(res)
         return HRESULT.S_OK.value
 
     def CryptoGetTextPassword(self, me, password):
@@ -130,7 +130,7 @@ class ArchiveExtractToDirectoryCallback(ArchiveExtractCallback):
             outStream[0] = stream.instances[IID_ISequentialOutStream]
         return HRESULT.S_OK.value
 
-    def cleanup(self):
+    def cleanup(self, res: OperationResult):
         log.debug('flushing streams')
         #if self._cleaned_up:
         #	return
