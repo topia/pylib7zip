@@ -22,8 +22,15 @@ def uuid2guidp(uu):
 
 class HRESULTException(Exception): pass
 
+def RERR(code) -> bool:
+    """ raise error if not S_OK/S_FALSE"""
+    if code == HRESULT.S_OK.value: return True
+    if code == HRESULT.S_FALSE.value: return False
+    RNOK(code)
+
+
 def RNOK(code):
-    """ raise error if not S_OK """
+    """ raise error if not S_OK"""
     # TODO raise different Exception based on result
     if code == HRESULT.S_OK.value: return
     #parse HRESULT

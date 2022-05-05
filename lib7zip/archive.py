@@ -11,7 +11,7 @@ from . import (
 from . import py7ziptypes
 from .py7ziptypes import ArchiveProps, OperationResult
 
-from .winhelpers import uuid2guidp, get_prop_val, RNOK
+from .winhelpers import uuid2guidp, get_prop_val, RNOK, RERR
 
 from .open_callback import ArchiveOpenCallback
 from .extract_callback import (
@@ -106,10 +106,9 @@ class Archive:
         #old_vtable = archive.vtable
         log.debug('opening archive')
         maxCheckStartPosition = ffi.new('uint64_t*', 1 << 22)
-        res = archive.vtable.Open(archive, stream_inst, maxCheckStartPosition, callback_inst)
-        if res == HRESULT.S_FALSE.value:
+        res = RERR(archive.vtable.Open(archive, stream_inst, maxCheckStartPosition, callback_inst))
+        if not res:
             raise ArchiveOpenError('open failed')
-        RNOK(res)
         self.itm_prop_fn = partial(archive.vtable.GetProperty, archive)
         #log.debug('what now?')
 
@@ -188,7 +187,7 @@ class Archive:
         if not self.archive or not self.archive.vtable or self.archive.vtable.Close == ffi.NULL:
             log.warn('close failed, NULLs')
             return
-        RNOK(self.archive.vtable.Close(self.archive))
+        RERR(self.archive.vtable.Close(self.archive))
         self.archive.vtable.Release(self.archive)
         self.archive = None
 
@@ -298,7 +297,7 @@ class Archive:
         for i in range(self.props_len):
             yield self.get_prop_info(i)
 
-    def extract(self, directory='', password=None):
+    def extract(self, directory='', password=None) -> bool:
         log.debug('Archive.extract()')
         '''
                 IInArchive::Extract:
@@ -310,14 +309,16 @@ class Archive:
         password = password or self.password
 
         callback = ArchiveExtractToDirectoryCallback(self, directory, password)
-        self.extract_with_callback(callback)
+        if self.extract_with_callback(callback):
+            if callback.res != OperationResult.kOK:
+                raise ExtractionError(callback.res)
+            return True
+        return False
 
-    def extract_with_callback(self, callback: ArchiveExtractCallback):
+    def extract_with_callback(self, callback: ArchiveExtractCallback) -> bool:
         callback_inst = callback.instances[py7ziptypes.IID_IArchiveExtractCallback]
         assert self.archive.vtable.Extract != ffi.NULL
-        RNOK(self.archive.vtable.Extract(self.archive, ffi.NULL, 0xFFFFFFFF, 0, callback_inst))
-        if callback.res != OperationResult.kOK:
-            raise ExtractionError(callback.res)
+        return RERR(self.archive.vtable.Extract(self.archive, ffi.NULL, 0xFFFFFFFF, 0, callback_inst))
 
 
 class ArchiveItem():
