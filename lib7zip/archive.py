@@ -1,8 +1,8 @@
 import os
 from functools import partial
 import io
-from typing import Any, Optional, Iterator
-from pathlib import Path
+from typing import Any, Optional, Iterator, IO
+from pathlib import Path, PurePath
 
 from . import (
     ffi, dll7z, max_sig_size, formats, log, C, VARTYPE, extensions,
@@ -125,14 +125,14 @@ class Archive:
         log.debug('successfully opened archive')
 
     @staticmethod
-    def formats_by_path(path: Path) -> Iterator[str]:
+    def formats_by_path(path: PurePath) -> Iterator[str]:
         for suffix in reversed(path.suffixes):
             names = extensions.get(suffix.lstrip('.'), None)
             if names is not None:
                 yield from names
 
     @classmethod
-    def guess_formats(cls, filename: Path, file: io.BytesIO) -> Iterator[str]:
+    def guess_formats(cls, filename: PurePath, file: IO[bytes]) -> Iterator[str]:
         log.debug('guess format')
 
         format_names = set(cls.formats_by_path(filename))
@@ -147,29 +147,30 @@ class Archive:
                     format_names[udf_idx], format_names[iso_idx]
         file.seek(0)
         sigcmp = file.read(max_sig_size)
+        startswith = sigcmp.startswith
         file.seek(0)
         del file
         yielded = set()
 
-        for name in format_names:
-            format = formats[name]
-            if format.start_signature and sigcmp.startswith(format.start_signature):
-                if name not in yielded:
-                    yield name
-                    yielded.add(name)
-
-        for name in format_names:
+        def filter_unique(name):
             if name not in yielded:
                 yield name
-                yielded.add(name)
+            yielded.add(name)
+
+        def filter_applicable_format(name, format):
+            if format.start_signature and startswith(format.start_signature):
+                yield from filter_unique(name)
+
+        for name in format_names:
+            yield from filter_applicable_format(name, formats[name])
+
+        for name in format_names:
+            yield from filter_unique(name)
 
         for name, format in formats.items():
             if name in format_names:
                 continue
-            if format.start_signature and sigcmp.startswith(format.start_signature):
-                if name not in yielded:
-                    yield name
-                    yielded.add(name)
+            yield from filter_applicable_format(name, format)
 
     def __enter__(self, *args, **kwargs):
         return self
