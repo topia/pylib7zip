@@ -83,7 +83,7 @@ else:
 
 
     suffixes = '', '7z.so', 'p7zip/7z.so'
-    prefixes = ['/lib', '/usr/lib']
+    prefixes = ['/lib', '/usr/lib', '/data/data/com.termux/files/usr/lib']
     for suffix in suffixes:
         for prefix in prefixes:
             dll_paths.append(os.path.join(prefix, suffix))
