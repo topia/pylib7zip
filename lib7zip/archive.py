@@ -126,7 +126,7 @@ class Archive:
     @staticmethod
     def formats_by_path(path: PurePath) -> Iterator[str]:
         for suffix in reversed(path.suffixes):
-            names = extensions.get(suffix.lstrip('.'), None)
+            names = extensions.get(suffix.lower().lstrip('.'), None)
             if names is not None:
                 yield from names
 
@@ -159,6 +159,10 @@ class Archive:
         def filter_applicable_format(name, format):
             if format.start_signature and startswith(format.start_signature):
                 yield from filter_unique(name)
+            elif sigcmp.find(format.start_signature) > 0:  # skip possible headers
+                yield from filter_unique(name)
+            elif str(filename).lower().endswith(format.extensions):  # match extensions only
+                yield from filter_unique(name)
 
         for name in format_names:
             yield from filter_applicable_format(name, formats[name])
@@ -167,7 +171,7 @@ class Archive:
             yield from filter_unique(name)
 
         for name, format in formats.items():
-            if name in format_names:
+            if name in format_names or not format.start_signature:
                 continue
             yield from filter_applicable_format(name, format)
 

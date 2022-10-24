@@ -224,6 +224,8 @@ formats = get_format_info()
 extensions = get_extensions_to_formats()
 # print(formats.values())
 max_sig_size = max(len(f.start_signature or b'') for f in formats.values())
+if max_sig_size < 4096:
+	max_sig_size = 4096
 getting_meths = True
 methods = get_method_info()
 
