@@ -159,10 +159,10 @@ class Archive:
         def filter_applicable_format(name, format):
             if format.start_signature and startswith(format.start_signature):
                 yield from filter_unique(name)
-            elif sigcmp.find(format.start_signature) > 0:  # skip possible headers
+            elif format.start_signature and sigcmp.find(format.start_signature) > 0:  # skip possible headers
                 yield from filter_unique(name)
-            elif str(filename).lower().endswith(format.extensions):  # match extensions only
-                yield from filter_unique(name)
+            #elif str(filename).lower().endswith(format.extensions):  # match extensions only
+            #    yield from filter_unique(name)
 
         for name in format_names:
             yield from filter_applicable_format(name, formats[name])
@@ -252,7 +252,7 @@ class Archive:
         RNOK(self.archive.vtable.GetNumberOfArchiveProperties(self.archive, num))
         return int(num[0])
 
-    def get_arc_prop_info(self, index: int) -> tuple[Optional[str], ArchiveProps, VARTYPE]:
+    def get_arc_prop_info(self, index: int):  #  -> tuple[Optional[str], ArchiveProps, VARTYPE]
         propid = ffi.new('PROPID*')
         vt = ffi.new('VARTYPE*')
         name = ffi.new('wchar_t**')
@@ -267,11 +267,11 @@ class Archive:
                 free_string(name[0])
         return name_str, ArchiveProps(propid[0]), VARTYPE(vt[0])
 
-    def iter_arc_props_info(self) -> Iterator[tuple[Optional[str], ArchiveProps, VARTYPE]]:
+    def iter_arc_props_info(self): # -> Iterator[tuple[Optional[str], ArchiveProps, VARTYPE]]:
         for i in range(self.arc_props_len):
             yield self.get_arc_prop_info(i)
 
-    def iter_arc_props(self) -> Iterator[tuple[Optional[str], ArchiveProps, VARTYPE, Any]]:
+    def iter_arc_props(self): #-> Iterator[tuple[Optional[str], ArchiveProps, VARTYPE, Any]]:
         for name, prop, vt in self.iter_arc_props_info():
             val = get_prop_val(partial(self.archive.vtable.GetArchiveProperty, self.archive, prop))
             yield name, prop, vt, val
@@ -360,12 +360,12 @@ class ArchiveItem():
         propid = getattr(py7ziptypes.ArchiveProps, attr)
         return get_prop_val(partial(self.archive.itm_prop_fn, self.index, propid))
 
-    def iter_props(self) -> Iterator[tuple[Optional[str], ArchiveProps, VARTYPE, Any]]:
+    def iter_props(self): # -> Iterator[tuple[Optional[str], ArchiveProps, VARTYPE, Any]]:
         for name, prop, vt in self.archive.iter_props_info():
             val = get_prop_val(partial(self.archive.itm_prop_fn, self.index, prop))
             yield name, prop, vt, val
 
-    def get_seq_in_stream(self) -> Optional[Any]:
+    def get_seq_in_stream(self): # -> Optional[Any]:
         get_void_ptr = ffi.new('void**')
         archive = self.archive.archive
         res = archive.vtable.QueryInterface(

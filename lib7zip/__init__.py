@@ -62,8 +62,12 @@ if 'win' in sys.platform:
         aKey = OpenKey(HKEY_LOCAL_MACHINE, r"SOFTWARE\7-Zip", 0, KEY_READ)
         s7z_path = QueryValueEx(aKey, "Path")[0]
     except FileNotFoundError:
-        s7z_path = os.path.normpath('B:/tools/7z1604')
+        s7z_path = os.path.normpath('C:/Program Files/7-Zip')
     dll_paths.append(os.path.join(s7z_path, '7z.dll'))
+    
+    # add common zip install paths
+    #dll_paths.append(os.path.join("%PROGRAMFILES%\7-Zip", '7z.dll'))
+    #dll_paths.append(os.path.join("C:\Portableapps\7-Zip\App", '7z.dll'))
 
     ole32 = ffi.dlopen('ole32')
     free_propvariant = lambda x: ole32.PropVariantClear(x)
